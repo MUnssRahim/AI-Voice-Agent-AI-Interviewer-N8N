@@ -62,8 +62,8 @@
       "name": "Groq Chat Model1",
       "credentials": {
         "groqApi": {
-          "id": "ZeyK151CkjgVO0xg",
-          "name": "Groq account"
+          "id": "REPLACE_WITH_YOUR_GROQ_CREDENTIAL_ID",
+          "name": "Configured Groq credential"
         }
       }
     },
@@ -95,8 +95,8 @@
       "name": "Create a row",
       "credentials": {
         "supabaseApi": {
-          "id": "dlcg2XsaS5E6IcXO",
-          "name": "Supabase account"
+          "id": "REPLACE_WITH_YOUR_SUPABASE_CREDENTIAL_ID",
+          "name": "Configured Supabase credential"
         }
       }
     },
@@ -115,7 +115,7 @@
       ],
       "id": "915f3545-a0bc-4aee-ad5c-5503a23e44fb",
       "name": "Webhook",
-      "webhookId": "40306fdb-c136-4772-964d-d972e4027bb6"
+      "webhookId": "REPLACE_WITH_YOUR_WEBHOOK_ID"
     },
     {
       "parameters": {
@@ -151,8 +151,8 @@
       "name": "TTS",
       "credentials": {
         "groqApi": {
-          "id": "ZeyK151CkjgVO0xg",
-          "name": "Groq account"
+          "id": "REPLACE_WITH_YOUR_GROQ_CREDENTIAL_ID",
+          "name": "Configured Groq credential"
         }
       }
     },
@@ -189,8 +189,8 @@
       "name": "STT",
       "credentials": {
         "groqApi": {
-          "id": "ZeyK151CkjgVO0xg",
-          "name": "Groq account"
+          "id": "REPLACE_WITH_YOUR_GROQ_CREDENTIAL_ID",
+          "name": "Configured Groq credential"
         }
       }
     },
@@ -230,8 +230,8 @@
       "name": "Update a row",
       "credentials": {
         "supabaseApi": {
-          "id": "dlcg2XsaS5E6IcXO",
-          "name": "Supabase account"
+          "id": "REPLACE_WITH_YOUR_SUPABASE_CREDENTIAL_ID",
+          "name": "Configured Supabase credential"
         }
       }
     },
@@ -271,8 +271,8 @@
       "name": "HTTP Request",
       "credentials": {
         "groqApi": {
-          "id": "ZeyK151CkjgVO0xg",
-          "name": "Groq account"
+          "id": "REPLACE_WITH_YOUR_GROQ_CREDENTIAL_ID",
+          "name": "Configured Groq credential"
         }
       }
     },
@@ -309,7 +309,7 @@
       ],
       "id": "263be3ea-a76f-4798-9765-be4658b38fcb",
       "name": "Webhook1",
-      "webhookId": "cbc21f19-84b3-4bf4-8d91-9e957d29762b"
+      "webhookId": "REPLACE_WITH_YOUR_WEBHOOK_ID"
     },
     {
       "parameters": {
@@ -381,8 +381,8 @@
       "name": "Get a row",
       "credentials": {
         "supabaseApi": {
-          "id": "dlcg2XsaS5E6IcXO",
-          "name": "Supabase account"
+          "id": "REPLACE_WITH_YOUR_SUPABASE_CREDENTIAL_ID",
+          "name": "Configured Supabase credential"
         }
       }
     },
@@ -629,8 +629,8 @@
   "versionId": "bae76be3-a1d0-4198-a65b-b3573453ef5a",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "bb1fc12cea5f200b62e16321bce98eb7317e148ca6df8f8ca81efcc0d8478312"
+    "instanceId": "REPLACE_WITH_YOUR_INSTANCE_ID"
   },
-  "id": "0IdkSbXsav1uuiJO",
+  "id": "REPLACE_WITH_YOUR_WORKFLOW_ID",
   "tags": []
 }

@@ -1,9 +1,14 @@
+import os
 from typing import Optional
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import HTMLResponse
 import requests
 
 app = FastAPI()
+
+N8N_BASE_URL = os.getenv("N8N_BASE_URL", "http://127.0.0.1:5678").rstrip("/")
+START_INTERVIEW_PATH = os.getenv("N8N_START_WEBHOOK_PATH", "/webhook-test/start-interview")
+ANSWER_PATH = os.getenv("N8N_ANSWER_WEBHOOK_PATH", "/webhook-test/interview-turn")
 
 @app.get("/", response_class=HTMLResponse)
 def serve_html():
@@ -16,22 +21,17 @@ def serve_html():
 @app.post("/api/start-interview")
 def proxy_start_interview(data: UploadFile = File(...)):
     files = {"data": (data.filename, data.file, data.content_type)}
-    # Use /webhook/ if active in n8n, or /webhook-test/ while testing node-by-node
-    n8n_url = "http://127.0.0.1:5678/webhook-test/start-interview"
-    response = requests.post(n8n_url, files=files)
+    response = requests.post(f"{N8N_BASE_URL}{START_INTERVIEW_PATH}", files=files, timeout=60)
     return response.json()
 
 @app.post("/api/answer")
 def proxy_answer(session_id: str = Form(...), audio: Optional[UploadFile] = File(None)):
     payload = {"session_id": session_id}
-    n8n_url = "http://127.0.0.1:5678/webhook-test/interview-turn"
-    
-    # If audio is sent (Loop turn), forward files + payload
+
     if audio and audio.filename:
         files = {"audio": (audio.filename, audio.file, audio.content_type)}
-        response = requests.post(n8n_url, files=files, data=payload)
+        response = requests.post(f"{N8N_BASE_URL}{ANSWER_PATH}", files=files, data=payload, timeout=60)
     else:
-        # If no audio is sent (Initial turn), forward ONLY payload
-        response = requests.post(n8n_url, data=payload)
-        
+        response = requests.post(f"{N8N_BASE_URL}{ANSWER_PATH}", data=payload, timeout=60)
+
     return response.json()
