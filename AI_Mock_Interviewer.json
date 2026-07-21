@@ -1,0 +1,636 @@
+{
+  "name": "AI_Mock_Interviewer",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "data0",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -192,
+        -288
+      ],
+      "id": "92518086-af28-4ca0-85e6-f63f76a10f0f",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.text || \"\";\n\nreturn [{\n  json: {\n    text,\n    textLength: text.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        -336
+      ],
+      "id": "d2ca414a-a989-440e-9b00-487fc1fc5995",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==Extract and format the resume data from the text below. Output ONLY the structured text exactly matching the template. Use \"Not provided\" for missing info. No conversational filler.\n\nRaw Text:\n{{ $json.text }}\n\nTEMPLATE:\nPersonal Info\nName:\nContact/Links:\nLocation:\n\nEducation Details\nEducation 1: [Degree] - [Institution]\nDetails: [Dates, GPA, coursework]\n(Repeat structure if more)\n\nExperience Details\n[Job Title] at [Company Name] ([Dates])\nDetails: [Concise summary]\n(Repeat structure if more)\n\nProject Details\nProject 1 Name: [Project Name]\nProject 1 Details: [Description, architecture, outcome]\n(Repeat structure if more)\n\nTechnical Skills Found\nSkills: [Comma-separated list of all technical skills, languages, frameworks, and tools]",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        320,
+        -480
+      ],
+      "id": "c2c1cb8f-9524-46ac-8c60-a178ba94bf28",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3.6-27b",
+        "options": {
+          "maxTokensToSample": 1000,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        368,
+        -224
+      ],
+      "id": "583752c9-462b-4800-a9b8-19b7cd346261",
+      "name": "Groq Chat Model1",
+      "credentials": {
+        "groqApi": {
+          "id": "ZeyK151CkjgVO0xg",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Extract the raw text from the Groq API response\nlet rawText = \"\";\nconst inputData = $input.item.json;\n\n// Look specifically for the Groq/OpenAI JSON structure\nif (inputData.choices && inputData.choices.length > 0 && inputData.choices[0].message) {\n    rawText = inputData.choices[0].message.content;\n} else if (typeof inputData.text === 'string') {\n    rawText = inputData.text;\n} else if (inputData.message && typeof inputData.message.content === 'string') {\n    rawText = inputData.message.content;\n} else {\n    rawText = JSON.stringify(inputData);\n}\n\n// 2. Clean up Markdown wrappers (```json ... ```) if they exist\nif (rawText.includes(\"```json\")) {\n    rawText = rawText.split(\"```json\")[1].split(\"```\")[0];\n} else if (rawText.includes(\"```\")) {\n    rawText = rawText.split(\"```\")[1].split(\"```\")[0];\n}\n\n// 3. Parse the clean string into a real JavaScript Object\nlet data = {};\ntry {\n    data = JSON.parse(rawText.trim());\n} catch (e) {\n    // If parsing fails, throw an error to see it clearly in the n8n logs\n    throw new Error(\"Failed to parse AI output into JSON: \" + rawText);\n}\n\n// 4. Extract arrays safely\nconst behavioralQs = data.behavioral_questions || [];\nconst projectQs = data.project_questions || [];\nconst technicalQs = data.technical_questions || [];\n\n// 5. Flatten everything into a single array of purely STRINGS\nconst flatQuestions = [\n    ...behavioralQs, // Already strings\n    ...projectQs.map(item => item.question),  // Extract the \"question\" string from the object\n    ...technicalQs.map(item => item.question) // Extract the \"question\" string from the object\n].filter(q => q !== undefined && q !== null); // Filter out any empty items\n\n// 6. Safely generate or extract a Session ID\nlet sessionId = \"session_\" + $execution.id; \ntry {\n    // Note: Assuming your webhook node is named 'Webhook1' based on earlier logs\n    const webhookData = $('Webhook1').first().json; \n    if (webhookData && webhookData.body && webhookData.body.session_id) {\n        sessionId = webhookData.body.session_id;\n    }\n} catch (error) {\n    // Failsafe fallback if Webhook node isn't found\n}\n\n// 7. Output the fully completed payload for the database (Supabase)\nreturn {\n  session_id: sessionId,\n  questions: flatQuestions,\n  current_index: 0,\n  total_questions: flatQuestions.length,\n  answers: []\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        -256
+      ],
+      "id": "76b773ba-be9e-47bb-9123-0295b7ed7516",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "tableId": "interview_sessions",
+        "dataToSend": "autoMapInputData"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        -256
+      ],
+      "id": "5e37e6d0-8a8b-4252-9851-e2183fd46de2",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "dlcg2XsaS5E6IcXO",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "interview-turn",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -896,
+        160
+      ],
+      "id": "915f3545-a0bc-4aee-ad5c-5503a23e44fb",
+      "name": "Webhook",
+      "webhookId": "40306fdb-c136-4772-964d-d972e4027bb6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const dbRow = $('Get a row').item.json;\n\nreturn {\n  session_id: dbRow.session_id,\n  question_to_ask: dbRow.questions[0], // Grabs the first question\n  next_index: 1,\n  updated_answers: []\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        240
+      ],
+      "id": "542dd789-ce00-415c-a92e-6a6f68e493b3",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/audio/speech",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"canopylabs/orpheus-v1-english\",\n  \"input\": \"{{ $json.question_to_ask }}\",\n  \"voice\": \"autumn\",\n  \"response_format\": \"wav\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        592,
+        240
+      ],
+      "id": "86122816-6391-4f23-a6ec-9ee4cbc4004b",
+      "name": "TTS",
+      "credentials": {
+        "groqApi": {
+          "id": "ZeyK151CkjgVO0xg",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "whisper-large-v3-turbo"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "audio"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        160,
+        -48
+      ],
+      "id": "f7f2d4df-0ef2-431b-b34f-5f6942456e90",
+      "name": "STT",
+      "credentials": {
+        "groqApi": {
+          "id": "ZeyK151CkjgVO0xg",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "interview_sessions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.session_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_index",
+              "fieldValue": "={{ $json.next_index }}"
+            },
+            {
+              "fieldId": "answers",
+              "fieldValue": "={{ $json.updated_answers }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        128
+      ],
+      "id": "2fa3e6ee-6283-46a3-a866-10cc4c4fb1a5",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "dlcg2XsaS5E6IcXO",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"{{ $('Code in JavaScript4').item.json.interview_status }}\",\n  \"question\": \"{{ $('Code in JavaScript4').item.json.question_to_ask }}\",\n  \"audio_b64\": \"{{ $('Code in JavaScript4').item.json.audio_b64 }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1472,
+        128
+      ],
+      "id": "143ee5f8-f86f-44bf-94b0-a2894eb11098",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    \"model\": \"llama-3.1-8b-instant\",\n    \"messages\": [\n      {\n        \"role\": \"system\",\n        \"content\": \"You are an Elite Principal Systems Engineer running a rigorous, voice-based technical interview. Analyze the candidate's resume and generate a highly customized, intellectually demanding interview script.\\n\\nCRITICAL DIRECTIVES:\\n1. RESUME-FIRST ALIGNMENT: Prioritize the technical skills explicitly claimed in the resume as the anchor for every question. Every question MUST tie directly to a specific project, role, or skill they actually stated. Do not invent unrelated hypothetical scenarios — ground your rigor in their real, stated experience.\\n2. VOICE-OPTIMIZED RIGOR: A Voice AI will read these questions aloud, so they must sound like natural spoken dialogue. Keep every question deep, probing, and genuinely challenging. Limit each one to exactly 3 to 4 articulate, precise sentences. Do NOT write massive run-on paragraphs.\\n3. ENGINEERING REALITY: Use the Knowledge Bank to push the candidate on real trade-offs. Make them explain how they handled specific constraints — latency, memory, scaling, noisy data — and justify their architectural choices.\\n4. OUTPUT FORMAT: Output your final response ONLY as a valid JSON object conforming exactly to the schema below. Do not include markdown formatting or commentary.\\n\\n### ─── INTERNAL KNOWLEDGE BANK (SYLLABUS) ───\\n[LLMs / Generative AI / RAG] Transformer architecture, Embeddings, Tokenization, Context limits, Fine-tuning, PEFT, Quantization, Hallucination mitigation, RAG pipelines, Vector databases.\\n[AI Agents] AI Agent architectures, Agent memory, Tool calling, External APIs, Planning & Reasoning architectures, LangChain.\\n[Machine Learning / Deep Learning] Bias-variance tradeoff, Overfitting mitigation, Cross-validation, Regularization, Evaluation metrics, Optimizers, Transfer learning.\\n[Computer Vision] CNN architecture, Object detection vs Image classification, YOLO, mAP, Segmentation, Edge deployment.\\n[Embedded Systems & Mechatronics] C/C++ memory management, Interrupts vs Polling, DMA, Watchdog timers, GPIO, PWM, Communication protocols (UART, SPI, I2C), RTOS (Tasks, Mutexes, Race conditions).\\n[MLOps / Deployment] Deployment APIs (FastAPI), Containerization (Docker), Model monitoring, Handling data drift.\\n\\n### ─── EXECUTION STEPS ───\\n1. Technical Skill Priority: Extract up to 3 core technical skills explicitly claimed in the resume. Generate 1 sharp, highly specific question per skill, testing their understanding of its limits and system trade-offs relevant to their resume. (3-4 sentences each).\\n2. Project Deep-Dive: Identify the two most demanding projects. Generate 1 targeted, rigorous question for each, asking them to defend a specific architectural or algorithmic choice they mentioned against a realistic constraint. (3-4 sentences each).\\n3. Behavioral Questions: Generate exactly two challenging behavioral questions grounded in the actual scale or context of their stated experience. (3-4 sentences each).\\n\\n### ─── JSON OUTPUT SCHEMA ───\\n{\\n  \\\"behavioral_questions\\\": [\\n    \\\"Challenging, resume-linked behavioral scenario focusing on engineering realities.\\\",\\n    \\\"Challenging, resume-linked behavioral scenario focusing on engineering realities.\\\"\\n  ],\\n  \\\"project_questions\\\": [\\n    {\\n      \\\"project_name\\\": \\\"Exact Name of Project 1\\\",\\n      \\\"question\\\": \\\"Deep-dive question asking them to defend a specific technical choice or handle a constraint related to this project.\\\"\\n    },\\n    {\\n      \\\"project_name\\\": \\\"Exact Name of Project 2\\\",\\n      \\\"question\\\": \\\"Deep-dive question asking them to defend a specific technical choice or handle a constraint related to this project.\\\"\\n    }\\n  ],\\n  \\\"technical_questions\\\": [\\n    {\\n      \\\"skill\\\": \\\"Exact Name of Skill 1\\\",\\n      \\\"question\\\": \\\"Rigorous question testing the limits, mathematics, or trade-offs of this skill.\\\"\\n    },\\n    {\\n      \\\"skill\\\": \\\"Exact Name of Skill 2\\\",\\n      \\\"question\\\": \\\"Rigorous question testing the limits, mathematics, or trade-offs of this skill.\\\"\\n    },\\n    {\\n      \\\"skill\\\": \\\"Exact Name of Skill 3\\\",\\n      \\\"question\\\": \\\"Rigorous question testing the limits, mathematics, or trade-offs of this skill.\\\"\\n    }\\n  ]\\n}\"\n      },\n      {\n        \"role\": \"user\",\n        \"content\": \"Analyze the following resume text dynamically and output the JSON interview script:\\n\\n\" + ($json.output || $json.text)\n      }\n    ],\n    \"temperature\": 0.2,\n    \"max_tokens\": 800,\n    \"response_format\": {\n      \"type\": \"json_object\"\n    }\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        752,
+        -368
+      ],
+      "id": "ff3ee124-6c63-4c29-bea3-e8ce994f0ed2",
+      "name": "HTTP Request",
+      "credentials": {
+        "groqApi": {
+          "id": "ZeyK151CkjgVO0xg",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"session_id\": \"{{ $json.session_id }}\",\n  \"message\": \"Interview Initialized\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1520,
+        -128
+      ],
+      "id": "b1a58dbc-1237-4f6c-9315-c479cf0e8619",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "start-interview",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*",
+          "binaryPropertyName": "data"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -512,
+        -288
+      ],
+      "id": "263be3ea-a76f-4798-9765-be4658b38fcb",
+      "name": "Webhook1",
+      "webhookId": "cbc21f19-84b3-4bf4-8d91-9e957d29762b"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "57629621-6450-4c71-b6c5-1b35001314ba",
+              "leftValue": "={{ $json.action_path }}",
+              "rightValue": "process_audio",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": "={{ true }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -160,
+        80
+      ],
+      "id": "c765f472-356b-4c7a-ba50-a91002aff427",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get the Database row safely\nconst dbRow = $('Get a row').item.json;\n\n// 2. Grab the transcript safely (Prevents crashes if Groq Whisper fails)\nlet realTranscript = \"[Audio received, but transcription failed]\";\ntry {\n    const sttItem = $('STT').item.json;\n    if (sttItem && sttItem.text) {\n        realTranscript = sttItem.text;\n    }\n} catch (error) {\n    console.log(\"STT failed or was skipped.\");\n}\n\n// 3. Append the transcript to the existing answers array\nlet currentAnswers = dbRow.answers || [];\ncurrentAnswers.push(realTranscript);\n\nlet currentIndex = dbRow.current_index || 0;\n// Fallback in case total_questions isn't set\nlet totalQuestions = dbRow.total_questions || dbRow.questions.length; \nlet questionsArray = dbRow.questions || [];\n\n// 4. Handle End of Interview\nif (currentIndex >= totalQuestions) {\n    return { \n        status: \"completed\", \n        session_id: dbRow.session_id,\n        updated_answers: currentAnswers,\n        question_to_ask: \"Interview Completed.\",\n        next_index: currentIndex\n    };\n}\n\n// 5. Extract the next question and advance the index\nconst nextQuestion = questionsArray[currentIndex];\n\nreturn {\n    session_id: dbRow.session_id,\n    question_to_ask: nextQuestion,\n    next_index: currentIndex + 1,\n    updated_answers: currentAnswers\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        16
+      ],
+      "id": "d012cfc0-b22b-45bf-89c0-2aec0a2869b8",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "interview_sessions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "keyValue": "={{ $('Webhook').item.json.body.session_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -672,
+        80
+      ],
+      "id": "ccab6525-cfff-4506-9137-d14b21c8f109",
+      "name": "Get a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "dlcg2XsaS5E6IcXO",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let sourceData;\n\ntry {\n    // Attempt to grab data from Phase 2 (Answer Recording path)\n    // .first() ensures we don't get item index mismatch errors\n    sourceData = $('Code in JavaScript3').first().json;\n} catch (error) {\n    try {\n        // If Code 3 didn't run, fallback to Phase 1.5 (Fetch Q1 path)\n        sourceData = $('Code in JavaScript2').first().json;\n    } catch (innerError) {\n        throw new Error(\"Failed to find data from either Code 2 or Code 3.\");\n    }\n}\n\n// Reconstruct the ENTIRE object safely\nlet finalJson = {\n    session_id: sourceData.session_id,\n    next_index: sourceData.next_index,\n    updated_answers: sourceData.updated_answers || [],\n    question_to_ask: sourceData.question_to_ask || \"\",\n    interview_status: sourceData.status || \"in_progress\",\n    audio_b64: \"\" // Default to empty\n};\n\n// Handle the audio conversion safely\nconst ttsItem = $input.first();\nif (ttsItem && ttsItem.binary && ttsItem.binary.data) {\n    const buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\n    finalJson.audio_b64 = buffer.toString('base64');\n}\n\nreturn { json: finalJson };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        352
+      ],
+      "id": "ea216f9b-bc9a-4dcc-8426-26b9a922dadd",
+      "name": "Code in JavaScript4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Grab the database row we just fetched\nconst currentItem = $input.first();\n\n// 2. Reach back in time and grab the data from the Webhook\nconst webhookData = $('Webhook').first();\n\n// 3. Set a strict default text path\ncurrentItem.json.action_path = \"fetch_question\";\n\n// 4. If audio actually exists, attach it AND change the text path\nif (webhookData.binary && webhookData.binary.audio) {\n    currentItem.binary = webhookData.binary;\n    currentItem.json.action_path = \"process_audio\";\n}\n\nreturn currentItem;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        80
+      ],
+      "id": "b1e6ce9f-ec46-452e-8072-d18d3869faf2",
+      "name": "Rescue"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TTS": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "STT": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "STT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "Rescue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rescue": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bae76be3-a1d0-4198-a65b-b3573453ef5a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bb1fc12cea5f200b62e16321bce98eb7317e148ca6df8f8ca81efcc0d8478312"
+  },
+  "id": "0IdkSbXsav1uuiJO",
+  "tags": []
+}
