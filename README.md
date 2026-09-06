@@ -1,3 +1,8 @@
+#PROJECT DEMO :
+https://drive.google.com/file/d/1fpyyhkNN7HdJkT3s3unbXFBVZkGQFFOd/view?usp=drivesdk
+
+
+
 # AI Mock Interviewer
 
 AI Mock Interviewer is a voice-first mock interview system that turns a candidate's resume into a personalized technical interview experience. It combines a simple web interface, a FastAPI backend, an n8n workflow, and AI services for speech-to-text, text-to-speech, and question generation.
